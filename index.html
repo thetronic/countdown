@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Finder by Popularity</title>
+</head>
+<body>
+  <input type="text" id="lettersInput" placeholder="Enter 9 letters" maxlength="9" />
+  <button onclick="findWords()">Find Words</button>
+  <div id="output" style="white-space: pre-wrap; margin-top: 20px;"></div>
+
+  <!-- Load Compromise.js directly from CDN -->
+  <script src="https://unpkg.com/compromise@13.11.0/builds/compromise.min.js"></script>
+
+  <script>
+    let dictionary = [];
+
+    // Load dictionary file (words.txt should contain one word per line, sorted by popularity)
+    async function loadDictionary() {
+      const response = await fetch('1000-most-common-words.txt');
+      const text = await response.text();
+      dictionary = text.split('\n').map(word => word.trim().toLowerCase());
+    }
+
+    // Count letter occurrences in a string
+    function getLetterCounts(str) {
+      return str.split('').reduce((counts, char) => {
+        counts[char] = (counts[char] || 0) + 1;
+        return counts;
+      }, {});
+    }
+
+    // Check if a word can be formed using available letters
+    function canFormWord(word, letters) {
+      const availableCounts = getLetterCounts(letters);
+      const wordCounts = getLetterCounts(word);
+
+      for (let char of word) {
+        if (!availableCounts[char] || wordCounts[char] > availableCounts[char]) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    // Classify words into parts of speech using Compromise.js
+    function classifyWords(words) {
+      const wordClasses = {
+        nouns: [],
+        verbs: [],
+        adjectives: [],
+        adverbs: [],
+        others: []
+      };
+
+      words.forEach(word => {
+        const doc = window.nlp(word);
+        if (doc.has('#Noun')) wordClasses.nouns.push(word);
+        else if (doc.has('#Verb')) wordClasses.verbs.push(word);
+        else if (doc.has('#Adjective')) wordClasses.adjectives.push(word);
+        else if (doc.has('#Adverb')) wordClasses.adverbs.push(word);
+        else wordClasses.others.push(word);
+      });
+
+      return wordClasses;
+    }
+
+    // Sort words by their position in the dictionary (which is sorted by popularity)
+    function sortByPopularity(words) {
+      return words.sort((a, b) => {
+        return dictionary.indexOf(a) - dictionary.indexOf(b);
+      });
+    }
+
+    // Main function to find and classify words
+    async function findWords() {
+      const letters = document.getElementById('lettersInput').value.toLowerCase();
+      if (letters.length !== 9) {
+        alert('Please enter exactly 9 letters');
+        return;
+      }
+
+      document.getElementById('output').innerText = "🔎 Finding valid words...";
+
+      // Filter valid words based on available letters
+      const validWords = dictionary.filter(word => canFormWord(word, letters));
+
+      if (validWords.length === 0) {
+        document.getElementById('output').innerText = `⚠️ No valid words found with the letters "${letters}".`;
+        return;
+      }
+
+      document.getElementById('output').innerText = "🤔 Classifying words...";
+
+      // Classify words into parts of speech
+      const wordClasses = classifyWords(validWords);
+
+      // Sort words by popularity within each category (based on their position in the dictionary)
+      wordClasses.nouns = sortByPopularity(wordClasses.nouns);
+      wordClasses.verbs = sortByPopularity(wordClasses.verbs);
+      wordClasses.adjectives = sortByPopularity(wordClasses.adjectives);
+      wordClasses.adverbs = sortByPopularity(wordClasses.adverbs);
+      wordClasses.others = sortByPopularity(wordClasses.others);
+
+      // Format output
+      const output = `
+        ✅ NOUNS: ${wordClasses.nouns.join(', ') || 'None'}\n
+        ✅ VERBS: ${wordClasses.verbs.join(', ') || 'None'}\n
+        ✅ ADJECTIVES: ${wordClasses.adjectives.join(', ') || 'None'}\n
+        ✅ ADVERBS: ${wordClasses.adverbs.join(', ') || 'None'}\n
+        ✅ OTHERS: ${wordClasses.others.join(', ') || 'None'}
+      `;
+
+      // Output result
+      document.getElementById('output').innerText = output;
+    }
+
+    // Load the dictionary when the page loads
+    window.onload = loadDictionary;
+  </script>
+</body>
+</html>
