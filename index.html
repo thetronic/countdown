@@ -8,22 +8,35 @@
 <body>
   <input type="text" id="lettersInput" placeholder="Enter 9 letters" maxlength="9" />
   <button onclick="findWords()">Find Words</button>
+  
+  <!-- Radio buttons to select dictionary -->
+  <input type="radio" id="5000" name="dictionary" value="common.txt" checked>
+  <label for="5000"> 5,000 (Popularity) </label>
+  
+  <input type="radio" id="10000" name="dictionary" value="google-10000-english.txt">
+  <label for="10000"> 10,000 (Alphabetical)</label><br>
+  
   <div id="output" style="white-space: pre-wrap; margin-top: 20px;"></div>
 
-  <!-- Load Compromise.js directly from CDN -->
   <script src="https://unpkg.com/compromise@13.11.0/builds/compromise.min.js"></script>
 
   <script>
     let dictionary = [];
 
-    // Load dictionary file (words.txt should contain one word per line, sorted by popularity)
-    async function loadDictionary() {
-      const response = await fetch('1000-most-common-words.txt');
-      const text = await response.text();
-      dictionary = text.split('\n').map(word => word.trim().toLowerCase());
+    // Load dictionary file dynamically
+    async function loadDictionary(file) {
+      try {
+        const response = await fetch(file);
+        if (!response.ok) throw new Error(`Failed to load ${file}`);
+        const text = await response.text();
+        dictionary = text.split('\n').map(word => word.trim().toLowerCase());
+        console.log(`Loaded ${dictionary.length} words from ${file}`);
+      } catch (error) {
+        console.error(error);
+        alert(`Error loading dictionary: ${error.message}`);
+      }
     }
 
-    // Count letter occurrences in a string
     function getLetterCounts(str) {
       return str.split('').reduce((counts, char) => {
         counts[char] = (counts[char] || 0) + 1;
@@ -31,7 +44,6 @@
       }, {});
     }
 
-    // Check if a word can be formed using available letters
     function canFormWord(word, letters) {
       const availableCounts = getLetterCounts(letters);
       const wordCounts = getLetterCounts(word);
@@ -44,7 +56,6 @@
       return true;
     }
 
-    // Classify words into parts of speech using Compromise.js
     function classifyWords(words) {
       const wordClasses = {
         nouns: [],
@@ -66,14 +77,10 @@
       return wordClasses;
     }
 
-    // Sort words by their position in the dictionary (which is sorted by popularity)
     function sortByPopularity(words) {
-      return words.sort((a, b) => {
-        return dictionary.indexOf(a) - dictionary.indexOf(b);
-      });
+      return words.sort((a, b) => dictionary.indexOf(a) - dictionary.indexOf(b));
     }
 
-    // Main function to find and classify words
     async function findWords() {
       const letters = document.getElementById('lettersInput').value.toLowerCase();
       if (letters.length !== 9) {
@@ -83,7 +90,6 @@
 
       document.getElementById('output').innerText = "🔎 Finding valid words...";
 
-      // Filter valid words based on available letters
       const validWords = dictionary.filter(word => canFormWord(word, letters));
 
       if (validWords.length === 0) {
@@ -93,17 +99,14 @@
 
       document.getElementById('output').innerText = "🤔 Classifying words...";
 
-      // Classify words into parts of speech
       const wordClasses = classifyWords(validWords);
 
-      // Sort words by popularity within each category (based on their position in the dictionary)
       wordClasses.nouns = sortByPopularity(wordClasses.nouns);
       wordClasses.verbs = sortByPopularity(wordClasses.verbs);
       wordClasses.adjectives = sortByPopularity(wordClasses.adjectives);
       wordClasses.adverbs = sortByPopularity(wordClasses.adverbs);
       wordClasses.others = sortByPopularity(wordClasses.others);
 
-      // Format output
       const output = `
         ✅ NOUNS: ${wordClasses.nouns.join(', ') || 'None'}\n
         ✅ VERBS: ${wordClasses.verbs.join(', ') || 'None'}\n
@@ -112,12 +115,25 @@
         ✅ OTHERS: ${wordClasses.others.join(', ') || 'None'}
       `;
 
-      // Output result
       document.getElementById('output').innerText = output;
     }
 
-    // Load the dictionary when the page loads
-    window.onload = loadDictionary;
+    // Handle dictionary file change based on radio button selection
+    function handleDictionaryChange() {
+      const selectedDictionary = document.querySelector('input[name="dictionary"]:checked').value;
+      loadDictionary(selectedDictionary);
+    }
+
+    // Event listener for dictionary change
+    document.querySelectorAll('input[name="dictionary"]').forEach(radio => {
+      radio.addEventListener('change', handleDictionaryChange);
+    });
+
+    // Load default dictionary on page load
+    window.onload = () => {
+      const selectedDictionary = document.querySelector('input[name="dictionary"]:checked').value;
+      loadDictionary(selectedDictionary);
+    };
   </script>
 </body>
 </html>
